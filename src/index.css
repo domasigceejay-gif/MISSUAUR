@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'VT323', monospace;
+    letter-spacing: 0.5px;
+  }
+}
+
+.font-arcade {
+  font-family: 'Press Start 2P', cursive, monospace;
+}
+
+.font-retro {
+  font-family: 'VT323', monospace;
+}
+
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* CRT monitor / scanline overlay effect toggleable */
+.scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 3px, 6px 100%;
+  pointer-events: none;
+}
+
+.pixel-shadow {
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.7);
+}
+
+.pixel-border {
+  border-style: solid;
+  border-width: 4px;
+  border-image-slice: 2;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 2s ease-in-out infinite;
+}

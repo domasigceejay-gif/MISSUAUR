@@ -1,0 +1,8 @@
+{
+  "name": "Remix Missusaur: Volcanic Run",
+  "description": "A retro pixelated runner where a fire-breathing dinosaur leaps over active volcanoes, repels falling meteors, battles enemy dinosaurs across evolving levels, and dances at the portal to escape extinction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

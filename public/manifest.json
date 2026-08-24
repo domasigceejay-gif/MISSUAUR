@@ -1,0 +1,16 @@
+{
+  "name": "Missusaur: Volcanic Run",
+  "short_name": "Missusaur",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050000",
+  "theme_color": "#050000",
+  "description": "A retro pixelated runner where a fire-breathing dinosaur leaps over active volcanoes.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
