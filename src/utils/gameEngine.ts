@@ -66,6 +66,13 @@ export class DinoGameEngine {
   private bgOffsetMid: number = 0;
   private bgOffsetNear: number = 0;
 
+  // Graphics theme
+  public isLightMode: boolean = false;
+
+  public setLightMode(light: boolean) {
+    this.isLightMode = light;
+  }
+
   // Listeners
   public onStateChange?: (state: GameState) => void;
   public onStatsUpdate?: (stats: GameStats, hp: number, fireEnergy: number) => void;
@@ -126,6 +133,8 @@ export class DinoGameEngine {
       isJumping: false,
       isDucking: false,
       isBreathingFire: false,
+      isSwingingSword: false,
+      swordTimer: 0,
       fireBreathTimer: 0,
       fireEnergy: 100,
       maxFireEnergy: 100,
@@ -188,6 +197,8 @@ export class DinoGameEngine {
     this.player.isJumping = false;
     this.player.isDucking = false;
     this.player.isBreathingFire = false;
+    this.player.isSwingingSword = false;
+    this.player.swordTimer = 0;
     this.player.fireBreathTimer = 0;
     this.player.fireEnergy = 100;
     this.player.invulnerableTimer = 0;
@@ -1031,91 +1042,421 @@ export class DinoGameEngine {
     }
   }
 
-  private renderSky(w: number, h: number) {
-    const grad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
-    grad.addColorStop(0, this.levelConfig.skyColorTop);
-    grad.addColorStop(1, this.levelConfig.skyColorBottom);
-    this.ctx.fillStyle = grad;
-    this.ctx.fillRect(0, 0, w, this.groundY);
-
-    // Distant falling volcanic embers / ash flakes
-    this.ctx.fillStyle = 'rgba(255, 152, 0, 0.4)';
+  private renderSky(w: number, _h: number) {
+    const theme = this.levelConfig.visualTheme || 'ASHEN_CRATER';
     const time = performance.now() * 0.001;
-    for (let i = 0; i < 24; i++) {
-      const ashX = ((i * 73 + time * 30) % w);
-      const ashY = ((i * 59 + time * 60) % this.groundY);
-      this.ctx.fillRect(ashX, ashY, 3, 3);
+
+    if (theme === 'PTEROSAUR_PEAKS') {
+      // LEVEL 2 - Highland Peaks (Matches user screenshot)
+      const grad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+      grad.addColorStop(0, '#7bbce5');
+      grad.addColorStop(0.65, '#a8d5ef');
+      grad.addColorStop(1, '#cbe8f8');
+      this.ctx.fillStyle = grad;
+      this.ctx.fillRect(0, 0, w, this.groundY);
+
+      // Fluffy clouds from screenshot
+      this.renderDaylightClouds(w, time);
+
+      // Distant soaring birds / pterosaurs in upper sky
+      this.ctx.fillStyle = 'rgba(56, 119, 168, 0.4)';
+      for (let i = 0; i < 3; i++) {
+        const bx = ((i * 320 + time * 18) % (w + 100)) - 50;
+        const by = 40 + i * 26 + Math.sin(time * 2 + i) * 6;
+        this.ctx.fillRect(bx, by, 8, 2);
+        this.ctx.fillRect(bx - 3, by - 2, 4, 2);
+        this.ctx.fillRect(bx + 7, by - 2, 4, 2);
+      }
+    } else if (theme === 'RAPTOR_CANYON') {
+      // LEVEL 3 - Raptor Canyon (Dusk red rock canyon)
+      const grad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+      grad.addColorStop(0, '#7c2d12');
+      grad.addColorStop(0.5, '#c2410c');
+      grad.addColorStop(1, '#f59e0b');
+      this.ctx.fillStyle = grad;
+      this.ctx.fillRect(0, 0, w, this.groundY);
+
+      // Setting desert sun
+      const sunX = w * 0.75;
+      const sunY = this.groundY * 0.45;
+      const sunGrad = this.ctx.createRadialGradient(sunX, sunY, 5, sunX, sunY, 45);
+      sunGrad.addColorStop(0, '#fef08a');
+      sunGrad.addColorStop(0.5, '#f97316');
+      sunGrad.addColorStop(1, 'rgba(124, 45, 18, 0)');
+      this.ctx.fillStyle = sunGrad;
+      this.ctx.beginPath();
+      this.ctx.arc(sunX, sunY, 45, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Canyon dust motes
+      this.ctx.fillStyle = 'rgba(251, 191, 36, 0.4)';
+      for (let i = 0; i < 18; i++) {
+        const dX = ((i * 77 + time * 45) % w);
+        const dY = ((i * 53 + time * 25) % this.groundY);
+        this.ctx.fillRect(dX, dY, 2.5, 2.5);
+      }
+    } else if (theme === 'BASALT_FORTRESS') {
+      // LEVEL 4 - Emerald Fortress (Subterranean crystal chasm)
+      const grad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+      grad.addColorStop(0, '#042f2e');
+      grad.addColorStop(0.6, '#0f766e');
+      grad.addColorStop(1, '#14b8a6');
+      this.ctx.fillStyle = grad;
+      this.ctx.fillRect(0, 0, w, this.groundY);
+
+      // Glowing floating bio-luminescent emerald spores
+      for (let i = 0; i < 22; i++) {
+        const sX = ((i * 83 + time * 20) % w);
+        const sY = ((i * 47 + Math.sin(time * 3 + i) * 20 + time * 15) % this.groundY);
+        const glow = Math.sin(time * 4 + i) * 0.3 + 0.7;
+        this.ctx.fillStyle = `rgba(52, 211, 153, ${glow * 0.8})`;
+        this.ctx.fillRect(sX, sY, 3, 3);
+      }
+    } else if (theme === 'TITAN_RIFT') {
+      // LEVEL 5 - Titan's Extinction Rift (Cosmic solar eclipse cataclysm)
+      const grad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+      grad.addColorStop(0, '#1e0a2d');
+      grad.addColorStop(0.5, '#581c87');
+      grad.addColorStop(1, '#831843');
+      this.ctx.fillStyle = grad;
+      this.ctx.fillRect(0, 0, w, this.groundY);
+
+      // Solar Eclipse Black Sun with Golden/Violet Corona
+      const ecX = w * 0.7;
+      const ecY = 70;
+      const ecGrad = this.ctx.createRadialGradient(ecX, ecY, 16, ecX, ecY, 52);
+      ecGrad.addColorStop(0, '#fef08a');
+      ecGrad.addColorStop(0.3, '#f59e0b');
+      ecGrad.addColorStop(0.7, '#c026d3');
+      ecGrad.addColorStop(1, 'rgba(30, 10, 45, 0)');
+      this.ctx.fillStyle = ecGrad;
+      this.ctx.beginPath();
+      this.ctx.arc(ecX, ecY, 52, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Black moon blocking sun center
+      this.ctx.fillStyle = '#0a0212';
+      this.ctx.beginPath();
+      this.ctx.arc(ecX, ecY, 22, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Cosmic dimensional sparks
+      this.ctx.fillStyle = 'rgba(254, 240, 138, 0.7)';
+      for (let i = 0; i < 24; i++) {
+        const sx = ((i * 97 + time * 60) % w);
+        const sy = ((i * 61 + time * 40) % this.groundY);
+        this.ctx.fillRect(sx, sy, 2, 2);
+      }
+    } else {
+      // LEVEL 1 - Ashen Crater (Dark or Light mode)
+      if (this.isLightMode) {
+        const grad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+        grad.addColorStop(0, '#58b2e5');
+        grad.addColorStop(0.6, '#9ee0f8');
+        grad.addColorStop(1, '#ffebcd');
+        this.ctx.fillStyle = grad;
+        this.ctx.fillRect(0, 0, w, this.groundY);
+
+        const sunX = w * 0.82;
+        const sunY = Math.min(80, this.groundY * 0.25);
+        const sunRadius = 28;
+        const sunGrad = this.ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, sunRadius + 22);
+        sunGrad.addColorStop(0, 'rgba(255, 255, 240, 0.95)');
+        sunGrad.addColorStop(0.45, 'rgba(255, 235, 130, 0.55)');
+        sunGrad.addColorStop(1, 'rgba(255, 210, 80, 0)');
+        this.ctx.fillStyle = sunGrad;
+        this.ctx.beginPath();
+        this.ctx.arc(sunX, sunY, sunRadius + 22, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.fillStyle = '#fff9c4';
+        this.ctx.beginPath();
+        this.ctx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.renderDaylightClouds(w, time);
+      } else {
+        const grad = this.ctx.createLinearGradient(0, 0, 0, this.groundY);
+        grad.addColorStop(0, this.levelConfig.skyColorTop);
+        grad.addColorStop(1, this.levelConfig.skyColorBottom);
+        this.ctx.fillStyle = grad;
+        this.ctx.fillRect(0, 0, w, this.groundY);
+
+        this.ctx.fillStyle = 'rgba(255, 152, 0, 0.4)';
+        for (let i = 0; i < 24; i++) {
+          const ashX = ((i * 73 + time * 30) % w);
+          const ashY = ((i * 59 + time * 60) % this.groundY);
+          this.ctx.fillRect(ashX, ashY, 3, 3);
+        }
+      }
+    }
+  }
+
+  private renderDaylightClouds(w: number, time: number) {
+    const cloudDefs = [
+      { yRatio: 0.16, speed: 18, scale: 1.2, xOffset: 60 },
+      { yRatio: 0.32, speed: 12, scale: 0.9, xOffset: 340 },
+      { yRatio: 0.22, speed: 24, scale: 1.3, xOffset: 650 },
+      { yRatio: 0.42, speed: 16, scale: 1.0, xOffset: 950 },
+    ];
+
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+    for (const c of cloudDefs) {
+      const cy = this.groundY * c.yRatio;
+      const totalOffset = (time * c.speed + c.xOffset + this.bgOffsetFar * 0.25) % (w + 240);
+      const cx = (w + 120) - totalOffset - 120;
+      const s = c.scale;
+
+      // Chunky 8-bit cloud puffs
+      this.ctx.fillRect(cx - 30 * s, cy, 60 * s, 14 * s);
+      this.ctx.fillRect(cx - 20 * s, cy - 8 * s, 42 * s, 10 * s);
+      this.ctx.fillRect(cx - 10 * s, cy - 14 * s, 24 * s, 8 * s);
+      this.ctx.fillRect(cx + 8 * s, cy - 6 * s, 20 * s, 8 * s);
     }
   }
 
   private renderParallaxBackground(w: number, _h: number) {
     const gy = this.groundY;
+    const theme = this.levelConfig.visualTheme || 'ASHEN_CRATER';
 
-    // Distant Volcano Peaks (slow scrolling)
-    this.ctx.fillStyle = this.levelConfig.mountainColor;
-    const peakW = 280;
-    const peakCount = Math.ceil(w / peakW) + 2;
+    if (theme === 'PTEROSAUR_PEAKS') {
+      // LEVEL 2 - Alpine Mountains with Flat Golden Plateau Caps & Lush Green Forest (Screenshot match!)
+      const peakW = 260;
+      const peakCount = Math.ceil(w / peakW) + 2;
 
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, gy);
-    for (let i = -1; i < peakCount; i++) {
-      const peakX = i * peakW - (this.bgOffsetFar % peakW);
-      this.ctx.lineTo(peakX, gy - 160);
-      this.ctx.lineTo(peakX + peakW / 2, gy - 240);
-      this.ctx.lineTo(peakX + peakW, gy - 160);
+      // 1. Distant Pyramid Mountains
+      for (let i = -1; i < peakCount; i++) {
+        const peakX = i * peakW - (this.bgOffsetFar % peakW);
+        const topY = gy - 200;
+        const plateauW = 50;
+
+        // Base mountain slope
+        this.ctx.fillStyle = '#3877a8'; // Alpine Blue from screenshot
+        this.ctx.beginPath();
+        this.ctx.moveTo(peakX, gy);
+        this.ctx.lineTo(peakX + (peakW - plateauW) / 2, topY);
+        this.ctx.lineTo(peakX + (peakW + plateauW) / 2, topY);
+        this.ctx.lineTo(peakX + peakW, gy);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // Shaded side (shadow effect)
+        this.ctx.fillStyle = '#2d628d';
+        this.ctx.beginPath();
+        this.ctx.moveTo(peakX, gy);
+        this.ctx.lineTo(peakX + peakW / 2, topY);
+        this.ctx.lineTo(peakX + peakW / 2, gy);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // Flat Golden Plateau Cap on the summit (as seen in user screenshot!)
+        this.ctx.fillStyle = '#f5d565';
+        this.ctx.fillRect(peakX + (peakW - plateauW) / 2 - 2, topY - 8, plateauW + 4, 8);
+        this.ctx.fillStyle = '#e5be45';
+        this.ctx.fillRect(peakX + (peakW - plateauW) / 2 - 2, topY - 2, plateauW + 4, 2);
+      }
+
+      // 2. Midground Rolling Green Forest Hills (as seen in user screenshot!)
+      this.ctx.fillStyle = '#43aa8b'; // Lush teal-green forest canopy
+      const hillW = 120;
+      const hillCount = Math.ceil(w / hillW) + 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, gy);
+      for (let i = -1; i < hillCount; i++) {
+        const hx = i * hillW - (this.bgOffsetMid % hillW);
+        this.ctx.quadraticCurveTo(hx + hillW / 2, gy - 65, hx + hillW, gy);
+      }
+      this.ctx.lineTo(w, gy);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      // Lower tree shadows
+      this.ctx.fillStyle = '#369368';
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, gy);
+      for (let i = -1; i < hillCount; i++) {
+        const hx = i * hillW - (this.bgOffsetMid % hillW) + 20;
+        this.ctx.quadraticCurveTo(hx + hillW / 2, gy - 40, hx + hillW, gy);
+      }
+      this.ctx.lineTo(w, gy);
+      this.ctx.closePath();
+      this.ctx.fill();
+    } else if (theme === 'RAPTOR_CANYON') {
+      // LEVEL 3 - Sandstone Mesas & Red Rock Pillars
+      const mesaW = 200;
+      const mesaCount = Math.ceil(w / mesaW) + 2;
+      for (let i = -1; i < mesaCount; i++) {
+        const mx = i * mesaW - (this.bgOffsetFar % mesaW);
+        const my = gy - 160;
+        this.ctx.fillStyle = '#9a3412';
+        this.ctx.fillRect(mx + 20, my, mesaW - 40, gy - my);
+        this.ctx.fillStyle = '#c2410c';
+        this.ctx.fillRect(mx + 20, my + 30, mesaW - 40, 14);
+        this.ctx.fillStyle = '#7c2d12';
+        this.ctx.fillRect(mx + 20, my + 70, mesaW - 40, 18);
+        this.ctx.fillStyle = '#ea580c';
+        this.ctx.fillRect(mx + 10, my - 6, mesaW - 20, 6);
+      }
+    } else if (theme === 'BASALT_FORTRESS') {
+      // LEVEL 4 - Emerald Crystal Spire Pillars
+      const colW = 110;
+      const colCount = Math.ceil(w / colW) + 2;
+      for (let i = -1; i < colCount; i++) {
+        const cx = i * colW - (this.bgOffsetFar % colW);
+        const ch = (i % 3 === 0 ? 190 : i % 2 === 0 ? 140 : 110);
+        this.ctx.fillStyle = '#064e3b';
+        this.ctx.fillRect(cx + 10, gy - ch, colW - 20, ch);
+        this.ctx.fillStyle = '#34d399';
+        this.ctx.fillRect(cx + 16, gy - ch + 15, 6, 25);
+        this.ctx.fillRect(cx + colW - 26, gy - ch + 45, 6, 35);
+      }
+    } else if (theme === 'TITAN_RIFT') {
+      // LEVEL 5 - Shattered Floating Island Crags
+      const cragW = 180;
+      const cragCount = Math.ceil(w / cragW) + 2;
+      for (let i = -1; i < cragCount; i++) {
+        const cx = i * cragW - (this.bgOffsetFar % cragW);
+        const floatY = gy - 180 + Math.sin(this.bgOffsetFar * 0.02 + i) * 15;
+        this.ctx.fillStyle = '#3b0764';
+        this.ctx.beginPath();
+        this.ctx.moveTo(cx + 20, floatY);
+        this.ctx.lineTo(cx + cragW - 20, floatY);
+        this.ctx.lineTo(cx + cragW / 2, floatY + 70);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        this.ctx.fillStyle = '#fbbf24';
+        this.ctx.fillRect(cx + cragW / 2 - 8, floatY + 60, 16, 4);
+      }
+    } else {
+      // LEVEL 1 / Default Volcanic Ranges
+      const peakW = 280;
+      const peakCount = Math.ceil(w / peakW) + 2;
+
+      this.ctx.fillStyle = this.isLightMode ? '#bcaaa4' : this.levelConfig.mountainColor;
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, gy);
+      for (let i = -1; i < peakCount; i++) {
+        const peakX = i * peakW - (this.bgOffsetFar % peakW);
+        this.ctx.lineTo(peakX, gy - 160);
+        this.ctx.lineTo(peakX + peakW / 2, gy - 240);
+        this.ctx.lineTo(peakX + peakW, gy - 160);
+      }
+      this.ctx.lineTo(w, gy);
+      this.ctx.closePath();
+      this.ctx.fill();
+
+      // Calderas on distant mountains
+      for (let i = -1; i < peakCount; i++) {
+        const peakX = i * peakW - (this.bgOffsetFar % peakW) + peakW / 2;
+        this.ctx.fillStyle = 'rgba(255, 87, 34, 0.7)';
+        this.ctx.fillRect(peakX - 15, gy - 242, 30, 6);
+      }
     }
-    this.ctx.lineTo(w, gy);
-    this.ctx.closePath();
-    this.ctx.fill();
-
-    // Glowing calderas on distant mountains
-    for (let i = -1; i < peakCount; i++) {
-      const peakX = i * peakW - (this.bgOffsetFar % peakW) + peakW / 2;
-      this.ctx.fillStyle = 'rgba(255, 87, 34, 0.6)';
-      this.ctx.fillRect(peakX - 15, gy - 242, 30, 6);
-    }
-
-    // Midground Basalt Ridges (medium scrolling)
-    this.ctx.fillStyle = 'rgba(28, 16, 16, 0.85)';
-    const ridgeW = 140;
-    const ridgeCount = Math.ceil(w / ridgeW) + 2;
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, gy);
-    for (let i = -1; i < ridgeCount; i++) {
-      const rx = i * ridgeW - (this.bgOffsetMid % ridgeW);
-      this.ctx.lineTo(rx, gy - 80);
-      this.ctx.lineTo(rx + ridgeW / 2, gy - 110);
-      this.ctx.lineTo(rx + ridgeW, gy - 80);
-    }
-    this.ctx.lineTo(w, gy);
-    this.ctx.closePath();
-    this.ctx.fill();
   }
 
   private renderGround(w: number, h: number) {
     const gy = this.groundY;
+    const gStyle = this.levelConfig.groundStyle || 'MAGMA';
 
-    // Ground Base
-    this.ctx.fillStyle = this.levelConfig.groundColor;
-    this.ctx.fillRect(0, gy, w, h - gy);
+    if (gStyle === 'HIGHWAY_PURPLE') {
+      // LEVEL 2 - Dark Paved Highway with Neon Purple Border & Yellow Dashed Stripes (Matches user screenshot!)
+      // Base asphalt road
+      this.ctx.fillStyle = '#303946'; // Slate dark asphalt
+      this.ctx.fillRect(0, gy, w, h - gy);
 
-    // Glowing Magma Fissure Line
-    this.ctx.fillStyle = this.levelConfig.lavaColor;
-    this.ctx.fillRect(0, gy, w, 6);
+      // Top Edge: Neon Violet / Purple stripe as in screenshot
+      this.ctx.fillStyle = '#a855f7'; // Purple glow
+      this.ctx.fillRect(0, gy, w, 7);
+      this.ctx.fillStyle = '#d8b4fe'; // Light purple highlight
+      this.ctx.fillRect(0, gy, w, 2);
 
-    // Flowing Lava Veins (fast scrolling)
-    this.ctx.fillStyle = '#ff6d00';
-    for (let x = - (this.bgOffsetNear % 80); x < w; x += 80) {
-      this.ctx.fillRect(x + 20, gy + 12, 35, 4);
-      this.ctx.fillRect(x + 10, gy + 28, 45, 5);
-      this.ctx.fillRect(x + 30, gy + 45, 25, 4);
-    }
+      // Road markings: Stacked double-row dashed yellow-orange highway lines (= = = = =)
+      const dashW = 24;
+      const dashGap = 16;
+      const dashTotal = dashW + dashGap;
+      const dashOffset = this.bgOffsetNear % dashTotal;
 
-    // Pixel rocks on surface
-    this.ctx.fillStyle = '#212121';
-    for (let x = - (this.bgOffsetNear % 100); x < w; x += 100) {
-      this.ctx.fillRect(x + 5, gy - 4, 12, 4);
-      this.ctx.fillRect(x + 60, gy - 3, 8, 3);
+      this.ctx.fillStyle = '#fbbf24'; // Bright yellow dash lines
+      // Top row of dashed lines
+      for (let x = -dashTotal; x < w + dashTotal; x += dashTotal) {
+        this.ctx.fillRect(x - dashOffset, gy + 14, dashW, 5);
+      }
+
+      // Bottom row of dashed lines
+      for (let x = -dashTotal; x < w + dashTotal; x += dashTotal) {
+        this.ctx.fillRect(x - dashOffset, gy + 24, dashW, 5);
+      }
+
+      // Asphalt texture / rock aggregate dots
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      for (let x = -(this.bgOffsetNear % 60); x < w; x += 60) {
+        this.ctx.fillRect(x + 10, gy + 42, 4, 3);
+        this.ctx.fillRect(x + 40, gy + 55, 3, 2);
+      }
+    } else if (gStyle === 'CANYON') {
+      // LEVEL 3 - Desert Canyon Trail
+      this.ctx.fillStyle = '#451a03';
+      this.ctx.fillRect(0, gy, w, h - gy);
+
+      // Canyon orange rim
+      this.ctx.fillStyle = '#ea580c';
+      this.ctx.fillRect(0, gy, w, 6);
+
+      // Glowing fracture veins
+      this.ctx.fillStyle = '#f97316';
+      for (let x = -(this.bgOffsetNear % 70); x < w; x += 70) {
+        this.ctx.fillRect(x + 15, gy + 14, 30, 4);
+        this.ctx.fillRect(x + 5, gy + 32, 40, 5);
+      }
+    } else if (gStyle === 'BASALT') {
+      // LEVEL 4 - Emerald Crystal Fortress Floor
+      this.ctx.fillStyle = '#022c22';
+      this.ctx.fillRect(0, gy, w, h - gy);
+
+      // Glowing emerald border
+      this.ctx.fillStyle = '#10b981';
+      this.ctx.fillRect(0, gy, w, 6);
+      this.ctx.fillStyle = '#6ee7b7';
+      this.ctx.fillRect(0, gy + 1, w, 2);
+
+      // Emerald magma stream
+      this.ctx.fillStyle = '#34d399';
+      for (let x = -(this.bgOffsetNear % 80); x < w; x += 80) {
+        this.ctx.fillRect(x + 20, gy + 16, 35, 5);
+        this.ctx.fillRect(x + 10, gy + 34, 45, 6);
+      }
+    } else if (gStyle === 'TITAN') {
+      // LEVEL 5 - Apocalyptic Molten Gold Floor
+      this.ctx.fillStyle = '#18181b';
+      this.ctx.fillRect(0, gy, w, h - gy);
+
+      // Blinding gold magma border
+      this.ctx.fillStyle = '#f59e0b';
+      this.ctx.fillRect(0, gy, w, 7);
+      this.ctx.fillStyle = '#fef08a';
+      this.ctx.fillRect(0, gy + 1, w, 3);
+
+      // Flowing gold magma rivers
+      this.ctx.fillStyle = '#fbbf24';
+      for (let x = -(this.bgOffsetNear % 75); x < w; x += 75) {
+        this.ctx.fillRect(x + 15, gy + 15, 38, 5);
+        this.ctx.fillRect(x + 8, gy + 32, 50, 6);
+      }
+    } else {
+      // LEVEL 1 / Default Magma Base
+      this.ctx.fillStyle = this.isLightMode ? '#dfcfb7' : this.levelConfig.groundColor;
+      this.ctx.fillRect(0, gy, w, h - gy);
+
+      this.ctx.fillStyle = this.isLightMode ? '#ff5722' : this.levelConfig.lavaColor;
+      this.ctx.fillRect(0, gy, w, 6);
+
+      this.ctx.fillStyle = '#ff6d00';
+      for (let x = -(this.bgOffsetNear % 80); x < w; x += 80) {
+        this.ctx.fillRect(x + 20, gy + 12, 35, 4);
+        this.ctx.fillRect(x + 10, gy + 28, 45, 5);
+        this.ctx.fillRect(x + 30, gy + 45, 25, 4);
+      }
     }
   }
 

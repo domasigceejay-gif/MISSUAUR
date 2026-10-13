@@ -1,4 +1,5 @@
 export type GameState = 
+  | 'STORY_INTRO'
   | 'MENU'
   | 'PLAYING'
   | 'PAUSED'
@@ -153,6 +154,8 @@ export interface LevelConfig {
   enemyDinoTypes: EnemyDinoType[];
   enemySpawnRate: number;
   description: string;
+  visualTheme?: 'ASHEN_CRATER' | 'PTEROSAUR_PEAKS' | 'RAPTOR_CANYON' | 'BASALT_FORTRESS' | 'TITAN_RIFT';
+  groundStyle?: 'MAGMA' | 'HIGHWAY_PURPLE' | 'CANYON' | 'BASALT' | 'TITAN';
 }
 
 export interface GameStats {

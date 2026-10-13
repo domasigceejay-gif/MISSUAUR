@@ -628,6 +628,16 @@ export function drawEnemyDino(
   const f = Math.floor(enemy.animFrame);
 
   if (enemy.type === 'PTERODACTYL') {
+    // Floating Level indicator badge as seen in screenshot
+    ctx.save();
+    ctx.fillStyle = '#a855f7';
+    ctx.fillRect(enemy.x + 2, enemy.y - 12, 30, 9);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`LV. ${enemy.level}`, enemy.x + 17, enemy.y - 5);
+    ctx.restore();
+
     // Flying Pterosaur
     const flap = f % 2 === 0;
     const wingY = flap ? -8 * ps : 6 * ps;
